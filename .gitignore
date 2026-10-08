@@ -1,0 +1,9 @@
+node_modules/
+dist/
+coverage/
+test-results/
+.env
+deploy/.env.deploy
+*.log
+*.tsbuildinfo
+.DS_Store

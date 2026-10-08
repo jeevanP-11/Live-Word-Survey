@@ -1,0 +1,58 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-survey}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-survey_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-survey}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./api/init-db:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-survey} -d ${POSTGRES_DB:-survey}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - survey-net
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://survey:survey_dev_password@db:5432/survey}
+      JWT_SECRET: ${JWT_SECRET:-change-me-to-a-long-random-string}
+      ADMIN_TOKEN_TTL: ${ADMIN_TOKEN_TTL:-4h}
+      SESSION_TOKEN_TTL: ${SESSION_TOKEN_TTL:-30m}
+      FUZZY_MATCH_THRESHOLD: ${FUZZY_MATCH_THRESHOLD:-0.8}
+      OTP_EXPIRY_MINUTES: ${OTP_EXPIRY_MINUTES:-2}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-me-please}
+      PORT: 4000
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - survey-net
+
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+    restart: unless-stopped
+    ports:
+      - '80:80'
+    depends_on:
+      - api
+    networks:
+      - survey-net
+
+networks:
+  survey-net:
+    driver: bridge
+
+volumes:
+  db-data:
